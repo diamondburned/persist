@@ -31,7 +31,7 @@ type Map[K, V any] struct {
 
 // NewMap returns a new Map using the default CBOR encoder and a provided
 // driver with sane defaults.
-func NewMap[K ~string, V any](driverOpener DriverOpenFunc, path string) (Map[K, V], error) {
+func NewMap[K, V any](driverOpener DriverOpenFunc, path string) (Map[K, V], error) {
 	driver, err := driverOpener(path)
 	if err != nil {
 		return Map[K, V]{}, err

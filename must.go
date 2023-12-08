@@ -4,13 +4,13 @@ import "fmt"
 
 // MustMap wraps a map and guarantees that no errors will be returned from
 // the map's methods, with the exception of Get, which now returns a bool.
-type MustMap[K comparable, V any] struct {
+type MustMap[K, V any] struct {
 	Map[K, V]
 }
 
 // NewMustMap returns a new MustMap. It has the same exact signature as
 // NewMap, and the user must still handle errors as they would with NewMap.
-func NewMustMap[K ~string, V any](driverOpener DriverOpenFunc, path string) (MustMap[K, V], error) {
+func NewMustMap[K, V any](driverOpener DriverOpenFunc, path string) (MustMap[K, V], error) {
 	m, err := NewMap[K, V](driverOpener, path)
 	if err != nil {
 		return MustMap[K, V]{}, err
