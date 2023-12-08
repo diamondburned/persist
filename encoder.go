@@ -3,6 +3,7 @@ package persist
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/fxamacker/cbor/v2"
 )
@@ -33,6 +34,41 @@ func (stringEncoder[T]) Encode(v T, buf []byte) ([]byte, error) {
 
 func (stringEncoder[T]) Decode(buf []byte) (T, error) {
 	return T(buf), nil
+}
+
+// StringerEncoder returns an Encoder that encodes values using the Stringer
+// interface. A parser function must be provided to decode the value
+// from the string representation.
+func StringerEncoder[T fmt.Stringer](parser func(s string) (T, error)) Encoder[T] {
+	return stringerEncoder[T]{parser}
+}
+
+type stringerEncoder[T fmt.Stringer] struct {
+	parser func(s string) (T, error)
+}
+
+func (stringerEncoder[T]) Encode(v T, buf []byte) ([]byte, error) {
+	return append(buf[:0], v.String()...), nil
+}
+
+func (e stringerEncoder[T]) Decode(buf []byte) (T, error) {
+	return e.parser(string(buf))
+}
+
+// BytesEncoder returns an Encoder that encodes values literally as byte slices.
+// Use this for fast key formatting.
+func BytesEncoder[T []byte]() Encoder[T] {
+	return bytesEncoder[T]{}
+}
+
+type bytesEncoder[T []byte] struct{}
+
+func (bytesEncoder[T]) Encode(v T, buf []byte) ([]byte, error) {
+	return append(buf[:0], v...), nil
+}
+
+func (bytesEncoder[T]) Decode(buf []byte) (T, error) {
+	return T(append([]byte(nil), buf...)), nil
 }
 
 // CBOREncoder returns an Encoder that encodes values using the CBOR format.

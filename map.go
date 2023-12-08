@@ -17,21 +17,20 @@ type Seq2[K, V any] func(yield func(K, V) bool) bool
 type Seq[V any] func(yield func(V) bool) bool
 
 // EncoderPair is a pair of encoders.
-type EncoderPair[K comparable, V any] struct {
+type EncoderPair[K, V any] struct {
 	Key   Encoder[K]
 	Value Encoder[V]
 }
 
 // Map is a type-safe map that persists to disk.
-type Map[K comparable, V any] struct {
+type Map[K, V any] struct {
 	driver   Driver
 	kencoder Encoder[K]
 	vencoder Encoder[V]
 }
 
 // NewMap returns a new Map using the default CBOR encoder and a provided
-// driver with sane defaults. This constructor has one limitation: it only
-// supports string keys.
+// driver with sane defaults.
 func NewMap[K ~string, V any](driverOpener DriverOpenFunc, path string) (Map[K, V], error) {
 	driver, err := driverOpener(path)
 	if err != nil {
@@ -39,13 +38,13 @@ func NewMap[K ~string, V any](driverOpener DriverOpenFunc, path string) (Map[K, 
 	}
 	return Map[K, V]{
 		driver:   driver,
-		kencoder: StringEncoder[K](),
+		kencoder: CBOREncoder[K](),
 		vencoder: CBOREncoder[V](),
 	}, nil
 }
 
 // NewMapFromEncoders returns a new Map from a pair of encoders.
-func NewMapFromEncoders[K comparable, V any](driver Driver, encs EncoderPair[K, V]) *Map[K, V] {
+func NewMapFromEncoders[K, V any](driver Driver, encs EncoderPair[K, V]) *Map[K, V] {
 	return &Map[K, V]{
 		driver:   driver,
 		kencoder: encs.Key,
