@@ -21,8 +21,11 @@ func NewMustMap[K, V any](driverOpener DriverOpenFunc, path string) (MustMap[K, 
 // Load returns the value associated with the key, or false if the key is not
 // found.
 func (m MustMap[K, V]) Load(key K) (V, bool) {
-	v, err := m.Map.Load(key)
-	return v, err == nil
+	v, ok, err := m.Map.Load(key)
+	if err != nil {
+		panic(fmt.Sprintf("MustMap cannot load: %v", err))
+	}
+	return v, ok
 }
 
 // Store sets the value associated with the key. If an error occurs, the

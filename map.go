@@ -1,12 +1,8 @@
 package persist
 
 import (
-	"errors"
 	"fmt"
 )
-
-// ErrNotFound is returned when a key is not found.
-var ErrNotFound = errors.New("not found")
 
 // Seq2 is an iterator over a map that yields key-value pairs.
 // It is inspired by https://github.com/golang/go/issues/61897.
@@ -78,28 +74,31 @@ func (m Map[K, V]) Store(k K, v V) error {
 }
 
 // Load gets a value by key.
-func (m Map[K, V]) Load(k K) (V, error) {
+func (m Map[K, V]) Load(k K) (V, bool, error) {
 	var v V
+	var ok bool
 
 	bk, err := m.kencoder.Encode(k, nil)
 	if err != nil {
-		return v, fmt.Errorf("encode key: %w", err)
+		return v, false, fmt.Errorf("encode key: %w", err)
 	}
 
 	err = m.driver.AcquireRO(func(tx DriverReadOnlyTx) error {
-		bv, err := tx.Get(bk)
+		var bv []byte
+		bv, ok, err = tx.Get(bk)
 		if err != nil {
 			return fmt.Errorf("get value: %w", err)
 		}
-
-		v, err = m.vencoder.Decode(bv)
-		if err != nil {
-			return fmt.Errorf("decode value: %w", err)
+		if ok {
+			v, err = m.vencoder.Decode(bv)
+			if err != nil {
+				return fmt.Errorf("decode value: %w", err)
+			}
 		}
 
 		return nil
 	})
-	return v, err
+	return v, ok, err
 }
 
 // LoadOrStore gets a value by key, or stores a value if the key is not found.
@@ -111,12 +110,11 @@ func (m Map[K, V]) LoadOrStore(k K, v V) (value V, loaded bool, err error) {
 	}
 
 	err = m.driver.AcquireRW(func(tx DriverReadWriteTx) error {
-		bv, err := tx.Get(bk)
+		bv, ok, err := tx.Get(bk)
 		if err != nil {
-			if !errors.Is(err, ErrNotFound) {
-				return fmt.Errorf("get value: %w", err)
-			}
-
+			return fmt.Errorf("get value: %w", err)
+		}
+		if !ok {
 			bv, err := m.vencoder.Encode(v, nil)
 			if err != nil {
 				return fmt.Errorf("encode value: %w", err)
@@ -145,20 +143,20 @@ func (m Map[K, V]) LoadAndDelete(k K) (v V, loaded bool, err error) {
 	}
 
 	err = m.driver.AcquireRW(func(tx DriverReadWriteTx) error {
-		bv, err := tx.Get(bk)
+		bv, ok, err := tx.Get(bk)
 		if err != nil {
-			if !errors.Is(err, ErrNotFound) {
-				return fmt.Errorf("get value: %w", err)
-			}
-			return tx.Delete(bk)
+			return fmt.Errorf("get value: %w", err)
 		}
+		if !ok {
+			return nil
+		}
+		loaded = true
 
 		v, err = m.vencoder.Decode(bv)
 		if err != nil {
 			return fmt.Errorf("decode value: %w", err)
 		}
 
-		loaded = true
 		return tx.Delete(bk)
 	})
 	return

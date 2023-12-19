@@ -64,12 +64,16 @@ type roTx struct {
 
 var _ persist.DriverReadOnlyTx = roTx{}
 
-func (tx roTx) Get(k []byte) ([]byte, error) {
+func (tx roTx) Get(k []byte) ([]byte, bool, error) {
 	item, err := tx.tx.Get(k)
 	if err != nil {
-		return nil, wrapError(err)
+		if errors.Is(err, badger.ErrKeyNotFound) {
+			return nil, false, nil
+		}
+		return nil, false, err
 	}
-	return yoinkItemValue(item)
+	v, err := yoinkItemValue(item)
+	return v, true, err
 }
 
 func (tx roTx) Each(f func(k, v []byte) error) error {
@@ -134,12 +138,5 @@ func (tx rwTx) Set(k, v []byte) error {
 }
 
 func (tx rwTx) Delete(k []byte) error {
-	return wrapError(tx.tx.Delete(k))
-}
-
-func wrapError(err error) error {
-	if errors.Is(err, badger.ErrKeyNotFound) {
-		return persist.ErrNotFound
-	}
-	return err
+	return tx.tx.Delete(k)
 }

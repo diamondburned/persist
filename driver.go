@@ -30,7 +30,7 @@ type Driver interface {
 
 // DriverReadOnlyTx is a read-only transaction.
 type DriverReadOnlyTx interface {
-	Get(k []byte) ([]byte, error)
+	Get(k []byte) ([]byte, bool, error)
 	Each(func(k, v []byte) error) error
 	EachKey(func(k []byte) error) error
 }
