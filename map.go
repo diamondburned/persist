@@ -10,11 +10,11 @@ var ErrNotFound = errors.New("not found")
 
 // Seq2 is an iterator over a map that yields key-value pairs.
 // It is inspired by https://github.com/golang/go/issues/61897.
-type Seq2[K, V any] func(yield func(K, V) bool) bool
+type Seq2[K, V any] func(yield func(K, V) bool)
 
 // Seq is an iterator over a map that yields values.
 // It is inspired by https://github.com/golang/go/issues/61897.
-type Seq[V any] func(yield func(V) bool) bool
+type Seq[V any] func(yield func(V) bool)
 
 // EncoderPair is a pair of encoders.
 type EncoderPair[K, V any] struct {
@@ -60,8 +60,8 @@ func (m Map[K, V]) Encoder() EncoderPair[K, V] {
 	}
 }
 
-// Set sets a key-value pair.
-func (m Map[K, V]) Set(k K, v V) error {
+// Store sets a key-value pair.
+func (m Map[K, V]) Store(k K, v V) error {
 	bk, err := m.kencoder.Encode(k, nil)
 	if err != nil {
 		return fmt.Errorf("encode key: %w", err)
@@ -77,8 +77,8 @@ func (m Map[K, V]) Set(k K, v V) error {
 	})
 }
 
-// Get gets a value by key.
-func (m Map[K, V]) Get(k K) (V, error) {
+// Load gets a value by key.
+func (m Map[K, V]) Load(k K) (V, error) {
 	var v V
 
 	bk, err := m.kencoder.Encode(k, nil)
@@ -102,6 +102,68 @@ func (m Map[K, V]) Get(k K) (V, error) {
 	return v, err
 }
 
+// LoadOrStore gets a value by key, or stores a value if the key is not found.
+func (m Map[K, V]) LoadOrStore(k K, v V) (value V, loaded bool, err error) {
+	var bk []byte
+	bk, err = m.kencoder.Encode(k, nil)
+	if err != nil {
+		return
+	}
+
+	err = m.driver.AcquireRW(func(tx DriverReadWriteTx) error {
+		bv, err := tx.Get(bk)
+		if err != nil {
+			if !errors.Is(err, ErrNotFound) {
+				return fmt.Errorf("get value: %w", err)
+			}
+
+			bv, err := m.vencoder.Encode(v, nil)
+			if err != nil {
+				return fmt.Errorf("encode value: %w", err)
+			}
+			return tx.Set(bk, bv)
+		}
+
+		v, err = m.vencoder.Decode(bv)
+		if err != nil {
+			return fmt.Errorf("decode value: %w", err)
+		}
+
+		value = v
+		loaded = true
+		return nil
+	})
+	return
+}
+
+// LoadAndDelete gets a value by key, or deletes the key if it is not found.
+func (m Map[K, V]) LoadAndDelete(k K) (v V, loaded bool, err error) {
+	var bk []byte
+	bk, err = m.kencoder.Encode(k, nil)
+	if err != nil {
+		return
+	}
+
+	err = m.driver.AcquireRW(func(tx DriverReadWriteTx) error {
+		bv, err := tx.Get(bk)
+		if err != nil {
+			if !errors.Is(err, ErrNotFound) {
+				return fmt.Errorf("get value: %w", err)
+			}
+			return tx.Delete(bk)
+		}
+
+		v, err = m.vencoder.Decode(bv)
+		if err != nil {
+			return fmt.Errorf("decode value: %w", err)
+		}
+
+		loaded = true
+		return tx.Delete(bk)
+	})
+	return
+}
+
 // Delete deletes a key-value pair.
 func (m Map[K, V]) Delete(k K) error {
 	bk, err := m.kencoder.Encode(k, nil)
@@ -122,8 +184,8 @@ func (m Map[K, V]) Close() error {
 
 // All returns an iterator over all key-value pairs in the map.
 func (m Map[K, V]) All() Seq2[K, V] {
-	return func(yield func(K, V) bool) bool {
-		err := m.driver.AcquireRO(func(tx DriverReadOnlyTx) error {
+	return func(yield func(K, V) bool) {
+		m.driver.AcquireRO(func(tx DriverReadOnlyTx) error {
 			return tx.Each(func(bk, bv []byte) error {
 				k, err := m.kencoder.Decode(bk)
 				if err != nil {
@@ -139,17 +201,13 @@ func (m Map[K, V]) All() Seq2[K, V] {
 				return nil
 			})
 		})
-		if err != nil && !errors.Is(err, driverStopIteration) {
-			return false
-		}
-		return true
 	}
 }
 
 // Keys returns an iterator over all keys in the map.
 func (m Map[K, V]) Keys() Seq[K] {
-	return func(yield func(K) bool) bool {
-		err := m.driver.AcquireRO(func(tx DriverReadOnlyTx) error {
+	return func(yield func(K) bool) {
+		m.driver.AcquireRO(func(tx DriverReadOnlyTx) error {
 			return tx.EachKey(func(bk []byte) error {
 				k, err := m.kencoder.Decode(bk)
 				if err != nil {
@@ -161,9 +219,5 @@ func (m Map[K, V]) Keys() Seq[K] {
 				return nil
 			})
 		})
-		if err != nil && !errors.Is(err, driverStopIteration) {
-			return false
-		}
-		return true
 	}
 }

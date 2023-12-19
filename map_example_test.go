@@ -20,10 +20,10 @@ func Example_badgerDB() {
 	}
 	defer m.Close()
 
-	m.Set("foo", User{ID: 1, Name: "foo"})
-	m.Set("bar", User{ID: 2, Name: "bar"})
+	m.Store("foo", User{ID: 1, Name: "foo"})
+	m.Store("bar", User{ID: 2, Name: "bar"})
 
-	u, ok := m.Get("foo")
+	u, ok := m.Load("foo")
 	fmt.Println(u, ok)
 
 	iter := m.All()

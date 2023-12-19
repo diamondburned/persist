@@ -1,6 +1,8 @@
 package badgerdb
 
 import (
+	"errors"
+
 	"github.com/dgraph-io/badger/v4"
 	"libdb.so/persist"
 )
@@ -65,7 +67,7 @@ var _ persist.DriverReadOnlyTx = roTx{}
 func (tx roTx) Get(k []byte) ([]byte, error) {
 	item, err := tx.tx.Get(k)
 	if err != nil {
-		return nil, err
+		return nil, wrapError(err)
 	}
 	return yoinkItemValue(item)
 }
@@ -132,5 +134,12 @@ func (tx rwTx) Set(k, v []byte) error {
 }
 
 func (tx rwTx) Delete(k []byte) error {
-	return tx.tx.Delete(k)
+	return wrapError(tx.tx.Delete(k))
+}
+
+func wrapError(err error) error {
+	if errors.Is(err, badger.ErrKeyNotFound) {
+		return persist.ErrNotFound
+	}
+	return err
 }
