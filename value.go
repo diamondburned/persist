@@ -30,6 +30,21 @@ func NewValue[V any](driverOpener DriverOpenFunc, path string) (Value[V], error)
 	return mappedValue[valueKeyT, V]{m, valueKey}, nil
 }
 
+// NewValueWithDefault returns a new [Value] using the default CBOR encoder and
+// the provided driver with sane defaults. If the value doesn't exist, it will
+// be set to the provided default.
+func NewValueWithDefault[V any](driverOpener DriverOpenFunc, path string, def V) (Value[V], error) {
+	v, err := NewValue[V](driverOpener, path)
+	if err != nil {
+		return nil, err
+	}
+	_, _, err = v.LoadOrStore(def)
+	if err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
 // NewMappedValue returns a new [Value] using the provided map and key.
 func NewMappedValue[K, V any](m Map[K, V], key K) Value[V] {
 	return mappedValue[K, V]{m, key}

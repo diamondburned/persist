@@ -81,10 +81,22 @@ type MustValue[V any] struct {
 	Value[V]
 }
 
-// NewMustValue returns a new MustValue. It has the same exact signature as
-// NewValue, and the user must still handle errors as they would with NewValue.
+// NewMustValue returns a new [MustValue]. It has the same exact signature as
+// [NewValue], and the user must still handle errors as they would with
+// [NewValue].
 func NewMustValue[V any](driverOpener DriverOpenFunc, path string) (MustValue[V], error) {
 	v, err := NewValue[V](driverOpener, path)
+	if err != nil {
+		return MustValue[V]{}, err
+	}
+	return MustValue[V]{v}, nil
+}
+
+// NewMustValueWithDefault returns a new MustValue. It has the same exact
+// signature as [NewValueWithDefault], and the user must still handle errors as
+// they would with [NewValueWithDefault].
+func NewMustValueWithDefault[V any](driverOpener DriverOpenFunc, path string, def V) (MustValue[V], error) {
+	v, err := NewValueWithDefault[V](driverOpener, path, def)
 	if err != nil {
 		return MustValue[V]{}, err
 	}
