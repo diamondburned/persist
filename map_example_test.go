@@ -8,7 +8,7 @@ import (
 	"libdb.so/persist/driver/badgerdb"
 )
 
-func Example_badgerDB() {
+func Example_map() {
 	type User struct {
 		ID   int
 		Name string

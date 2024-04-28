@@ -2,6 +2,10 @@ package persist
 
 import "fmt"
 
+/*
+ * Map
+ */
+
 // MustMap wraps a map and guarantees that no errors will be returned from
 // the map's methods, with the exception of Get, which now returns a bool.
 type MustMap[K, V any] struct {
@@ -61,5 +65,61 @@ func (m MustMap[K, V]) LoadOrStore(key K, value V) (actual V, loaded bool) {
 func (m MustMap[K, V]) Delete(key K) {
 	if err := m.Map.Delete(key); err != nil {
 		panic(fmt.Sprintf("MustMap cannot delete: %v", err))
+	}
+}
+
+/*
+ * Value
+ */
+
+// MustValue wraps a value and guarantees that no errors will be returned from
+// the value's methods.
+type MustValue[K, V any] struct {
+	Value[K, V]
+}
+
+// NewMustValue returns a new MustValue. It has the same exact signature as
+// NewValue, and the user must still handle errors as they would with NewValue.
+func NewMustValue[V any](driverOpener DriverOpenFunc, path string) (MustValue[valueKeyT, V], error) {
+	v, err := NewValue[V](driverOpener, path)
+	if err != nil {
+		return MustValue[valueKeyT, V]{}, err
+	}
+	return MustValue[valueKeyT, V]{v}, nil
+}
+
+func (m MustValue[K, V]) Load() (V, bool) {
+	v, ok, err := m.Value.Load()
+	if err != nil {
+		panic(fmt.Sprintf("MustValue cannot load: %v", err))
+	}
+	return v, ok
+}
+
+func (m MustValue[K, V]) Store(value V) {
+	if err := m.Value.Store(value); err != nil {
+		panic(fmt.Sprintf("MustValue cannot store: %v", err))
+	}
+}
+
+func (m MustValue[K, V]) LoadAndDelete() (V, bool) {
+	v, loaded, err := m.Value.LoadAndDelete()
+	if err != nil {
+		panic(fmt.Sprintf("MustValue cannot load and delete: %v", err))
+	}
+	return v, loaded
+}
+
+func (m MustValue[K, V]) LoadOrStore(value V) (actual V, loaded bool) {
+	v, loaded, err := m.Value.LoadOrStore(value)
+	if err != nil {
+		panic(fmt.Sprintf("MustValue cannot load or store: %v", err))
+	}
+	return v, loaded
+}
+
+func (m MustValue[K, V]) Delete() {
+	if err := m.Value.Delete(); err != nil {
+		panic(fmt.Sprintf("MustValue cannot delete: %v", err))
 	}
 }
