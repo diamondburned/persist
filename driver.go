@@ -18,6 +18,10 @@ var driverStopIteration = errors.New("stop iteration")
 // this requirement, it must return an error.
 type DriverOpenFunc func(path string) (Driver, error)
 
+// DefaultDriver is the default driver. Nothing uses it, but it's here for
+// convenience.
+var DefaultDriver DriverOpenFunc = CBORDriver
+
 // Driver is a driver for a persistent map. It exposes the ability to acquire
 // read-only and read-write transactions. Note that transactions are assumed to
 // have the properties of a database transaction, i.e. they are atomic and
